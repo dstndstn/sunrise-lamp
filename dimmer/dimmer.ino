@@ -13,7 +13,7 @@
 #define BUTTON_D    A3
 
 // neopixel
-#define PIN 1
+#define PIN 4
 
 int last_ac = 0;
 int n_ac = 0;
@@ -48,16 +48,7 @@ void setup() {
   lcd_write_instr(LCD_CMD_DISPLAY |
           LCD_DISPLAY_ON | LCD_CURSOR_ON | LCD_CURSOR_BLINK);
   lcd_write_instr(LCD_CMD_ENTRY | LCD_ENTRY_INC);
-  lcd_write_instr(LCD_CMD_HOME);
-  /*
-  lcd_write_data('H');
-  lcd_write_data('e');
-  lcd_write_data('l');
-  lcd_write_data('l');
-  lcd_write_data('o');
-
-  delay(500);
-  */
+  
   lcd_set_stdout();
   lcd_write_instr(LCD_CMD_DISPLAY | LCD_DISPLAY_ON);
   lcd_write_instr(LCD_CMD_CLEAR);
@@ -65,54 +56,56 @@ void setup() {
   lcd_home();
   lcd_clear();
   printf("Hello world!");
-  //printf("Hello     World\n%i  %s", 42, "penguins");
-  //lcd_test();
-  /*
-  lcd_write_instr(LCD_CMD_HOME);
-  lcd_move_to(0);
-  lcd_write_data('H');
-  lcd_write_data('e');
-  lcd_write_data('l');
-  lcd_write_data('l');
-  lcd_write_data('o');
-  */
     
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
-  c = strip.Color(255, 0, 0);
-  strip.setPixelColor(0, c);
-  strip.show();
 
-  delay(100);
-  c = strip.Color(255, 255, 0);
-  strip.setPixelColor(0, c);
-  strip.show();
-
-  delay(100);
-  c = strip.Color(255, 50, 0);
-  strip.setPixelColor(0, c);
-  strip.show();
+  int i;
+  for (i=0; i<256; i++) {
+    c = strip.Color(i, 0, 0);
+    strip.setPixelColor(0, c);
+    strip.show();
+    delay(2);
+  }
+  for (i=0; i<256; i++) {
+    c = strip.Color(255, i, 0);
+    strip.setPixelColor(0, c);
+    strip.show();
+    delay(2);
+  }
+  for (i=0; i<256; i++) {
+    c = strip.Color(255, 255, i);
+    strip.setPixelColor(0, c);
+    strip.show();
+    delay(2);
+  }
+  for (i=256; i>=0; i--) {
+    c = strip.Color(i, i, i);
+    strip.setPixelColor(0, c);
+    strip.show();
+    delay(1);
+  }
 
   // timer1: call interrupt after a delay
   noInterrupts();
   TCCR1A = 0;
-  //TCCR1B = 0;
   // TCNT1 = x;   // 65536 - 16MHz/prescale/delay
-  //TCCR1B = (1 << CS12); // 256 prescaler
   TCNT1 = 65535;
-  TCCR1B = (1 << CS11); // 8 prescaler
+  TCCR1B = (1 << CS11);   // factor 8 prescaler
   TIMSK1 |= (1 << TOIE1); // enable timer overflow interrupt
   interrupts();
   
   attachInterrupt(digitalPinToInterrupt(AC_DETECT), ac_isr, FALLING);
+
+  reset_wakeup();
 }
 
 static void ac_isr() {
+  // increment AC rectified-wave count (120 Hz)
   n_ac++;
-  //
-  if (ac_on) {
+  // if AC is enabled, start timer1 for triggering TRIAC
+  if (ac_on)
     TCNT1 = ac_delay;
-  }
 }
 
 // Interrupt routine for Timer1 overflow
@@ -132,13 +125,20 @@ ISR(TIMER1_OVF_vect) {
 //          timer2 used for tone()
 // - timers set for 1kHz freq
 
+// current time
+int32_t seconds = 8 * 3600 + 15;
 
 
-
-int seconds = 0;
 
 void set_ac(int perthou) {
-  // 0 to 1000
+  // perthou: brightness, range 0 to 1000
+  
+  // 16M / 8 / 120 = 16667 timer1 counts per 120-Hz cycle
+  // 16000 goes on full blast (has wrapped around to next cycle)
+  // 15900 full on
+  // 15800 is very low
+  // 15500 is very low
+  // 15000 is very low
   if (perthou < 0)
     perthou = 0;
   if (perthou > 1000)
@@ -149,24 +149,77 @@ void set_ac(int perthou) {
 
 int ac_frac = 0;
 
-int pwm = 0;
-
+// button press start time / most recent
 unsigned long ba_time = 0;
 unsigned long bb_time = 0;
 unsigned long bc_time = 0;
 unsigned long bd_time = 0;
 
+// end point
+//int32_t wakeup = (6+12) * 3600 + 30 * 60;
+int32_t wakeup = 8 * 3600 + 2 * 60;
+
+int started_lamp;
+
+void reset_wakeup() {
+  started_lamp = 0;
+}
+
+void update_wakeup() {
+
+  //int32_t neo_dur = 300;
+  //int32_t ac_dur = 1500;
+  int32_t neo_dur = 30;
+  int32_t ac_dur  = 60;
+
+  int32_t duration = neo_dur + ac_dur;
+  int32_t wakeup_start = wakeup - duration;
+
+  if (seconds < wakeup_start || seconds > wakeup)
+    return;
+
+  int32_t elapsed = seconds - wakeup_start;
+
+  printf("\n%li el ", elapsed);
+  
+  if (elapsed < neo_dur) {
+      int r = (255 * elapsed / neo_dur);
+      int g = ( 50 * elapsed / neo_dur);
+      int b = ( 10 * elapsed / neo_dur);
+      printf("neo %i %i %i", r, g, b);
+      c = strip.Color(r, g, b);
+      strip.setPixelColor(0, c);
+      strip.show();
+      return;
+  }
+
+  elapsed -= neo_dur;
+  if (!started_lamp) {
+    ac_on = 1;
+    set_ac(140);
+    delay(1000);
+    set_ac(50);
+    delay(100);
+    started_lamp = 1;
+  }
+
+  // slower ramp at start
+  int32_t dur1 = ac_dur/2;
+  int32_t frac;
+  if (elapsed < dur1) {
+    frac = 50 + 250 * elapsed / dur1;
+  } else {
+    frac = 50 + 250 + 700 * (elapsed-dur1) / (ac_dur - dur1);
+  }
+
+  printf("ac %li %li", elapsed, frac);
+  set_ac(frac);
+}
+
+
 void loop() {
 
-  // 16M / 8 / 120 = 16667 timer1 counts per 120-Hz cycle
-
-  // 16000 goes on full blast (has wrapped around to next cycle)
-  // 15900 full on
-  // 15800 is very low
-  // 15500 is very low
-  // 15000 is very low
-  
-  //ac_delay = 65535 - 15800;
+  /*
   if (!ac_on && seconds >= 3) {
     ac_on = 1;
 
@@ -175,11 +228,8 @@ void loop() {
     set_ac(100);
     ac_frac = 100;
   }
-
-  //ac_frac = int(1000. * abs(sin(seconds * 0.01)));
-  //set_ac(ac_frac);
-
-  //int buttons = analogRead(BUTTONS);
+  */
+  
   int ba = (analogRead(BUTTON_A) < 512);
   int bb = (analogRead(BUTTON_B) < 512);
   int bc = (analogRead(BUTTON_C) < 512);
@@ -191,13 +241,6 @@ void loop() {
   
   if (bc && now - bc_time > 50) {
     // C press/hold
-    /*
-    pwm++;
-    if (pwm > 255)
-      pwm = 255;
-    analogWrite(PWM_LED, pwm);
-    */
-    
     ac_frac++;
     if (ac_frac > 1000)
       ac_frac = 1000;
@@ -208,12 +251,6 @@ void loop() {
   }
   if (ba && now - ba_time > 50) {
     // A press/hold
-    /*
-    pwm--;
-    if (pwm < 0)
-      pwm = 0;
-    analogWrite(PWM_LED, pwm);
-    */
     ac_frac--;
     if (ac_frac < 0)
       ac_frac = 0;
@@ -239,39 +276,39 @@ void loop() {
   }
 
   if (n_ac >= 120) {
-    n_ac = 0;
+    n_ac -= 120;
     seconds++;
-    //digitalWrite(COUNT, seconds%2);
     updated = 1;
   }
 
   if (updated) {
     int ss = seconds % 60;
     int mm = seconds / 60;
-    int hh = (mm / 60) % 12;
+    int hh = (mm / 60);
     mm = mm % 60;
+    hh = hh % 24;
+    /// Not a typo... noon=0, midnight=12h, morning ~= 18h
+    int ispm = (hh < 12);
+    hh = hh % 12;
     if (hh == 0) {
       hh = 12;
     }
     lcd_home();
     //lcd_clear();
-    printf("%02i:%02i:%02i            ", hh, mm, ss);
-    //printf("\n%i    %i", ac_frac, buttons);
-    printf("\n%i %i   %i %i %i %i", ac_frac, pwm, ba, bb, bc, bd);
+    printf("%02i:%02i:%02i %s            ", hh, mm, ss, (ispm ? "PM":"AM"));
+    //printf("\n%i %i   %i %i %i %i", ac_frac, pwm, ba, bb, bc, bd);
+
+    // Roll over to the next day (at noon)!
+    //if (seconds && ispm && (hh==12) && (mm==0) && (ss==0)) {
+    int32_t day = 24 * (int32_t)3600;
+    if (seconds >= day) {
+      seconds -= day;
+      reset_wakeup();
+    }
+
+    update_wakeup();
   }
 
 }
 
-
-/*
-    int rgbperiod = 50;
-    if (0 &&  blink < rgbperiod) {
-      int r = ((255 * (blink%rgbperiod)) / rgbperiod);
-      int g = ((100 * (blink%rgbperiod)) / rgbperiod);
-      int b = (( 10 * (blink%rgbperiod)) / rgbperiod);
-      c = strip.Color(r, g, b);
-      strip.setPixelColor(0, c);
-      strip.show();
-    } else {
-*/
 
