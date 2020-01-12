@@ -15,6 +15,27 @@
 // neopixel
 #define PIN 4
 
+static void ac_isr();
+static void reset_wakeup();
+void setup();
+
+#if STANDALONE
+// From https://github.com/arduino/Arduino/blob/2bfe164b9a5835e8cb6e194b928538a9093be333/hardware/arduino/avr/cores/arduino/main.cpp
+// Weak empty variant initialization function.
+// May be redefined by variant files.
+void initVariant() __attribute__((weak));
+void initVariant() { }
+
+int main() {
+  init();
+  initVariant();
+  setup();
+  for (;;)
+    loop();
+}
+#endif
+
+
 int n_ac = 0;
 
 volatile int ac_on = 0;
@@ -156,7 +177,7 @@ int32_t wakeup = 8 * 3600 + 2 * 60;
 
 int started_lamp;
 
-void reset_wakeup() {
+static void reset_wakeup() {
   started_lamp = 0;
 }
 

@@ -1,3 +1,5 @@
+# make -f wakeup/Makefile
+
 # Internal calibrated RC oscillator -- 8 MHz
 # - fuse CKSEL 3:0 == 0010
 # - start-up timer SUT 1:0 = 10 default
@@ -32,21 +34,31 @@ OBJDUMP        = avr-objdump
 
 #ARD_DIR := /Applications/Arduino.app/Contents/Java/hardware/arduino/avr/
 
+# cp /Applications/Arduino.app/Contents/Java/hardware/arduino/avr//cores/arduino/wiring.c Arduino/
+
 ARD_DIR := Arduino
 
-CFLAGS := -O2 -DF_CPU=$(F_CPU) -I. -Ilibs -mmcu=$(MCU_TARGET) \
+CFLAGS := -O2 -DF_CPU=$(F_CPU) -mmcu=$(MCU_TARGET) \
 	-DARDUINO=100 \
 	-I$(ARD_DIR)/cores/arduino \
 	-I$(ARD_DIR)/variants/standard \
+	-Ilibraries/Adafruit_NeoPixel \
+	-Ilibraries/dstn-lcd \
 	-DSTANDALONE=1
 
-NEOPIXEL := libraries/Adafruit_NeoPixel.o
+NEOPIXEL := libraries/Adafruit_NeoPixel/Adafruit_NeoPixel.o
 
-ARDOBJS := Arduino/wiring.o Arduino/wiring_digital.o Arduino/hooks.o Arduino/WMath.o
+LCD := libraries/dstn-lcd/lcd.o
+
+ARDOBJS := Arduino/wiring.o Arduino/wiring_digital.o \
+	Arduino/hooks.o Arduino/WInterrupts.o \
+	Arduino/wiring_analog.o
+
+# Arduino/WMath.o 
 
 MAP := $(PROJECT).map
 
-$(PROJECT).elf: $(PROJECT).o $(NEOPIXEL) $(ARDOBJS)
+$(PROJECT).elf: $(PROJECT)/$(PROJECT).o $(NEOPIXEL) $(LCD) $(ARDOBJS)
 	$(CC) $(CFLAGS) -Wl,-Map,$(MAP) -o $@ $^
 
 ARD_H := \
@@ -63,7 +75,7 @@ ARD_H := \
 	variants/standard/pins_arduino.h
 
 ARDUINO_APP := /Applications/Arduino.app/Contents/Java/hardware/arduino/avr/
-ardheaders.tgz: $(addprefix $(ARD_DIR), $(ARD_H))
+ardheaders.tgz: $(addprefix $(ARDUINO_APP), $(ARD_H))
 	tar czf $@ -C $(ARDUINO_APP) $(ARD_H)
 
 program:
