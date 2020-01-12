@@ -15,9 +15,7 @@
 // neopixel
 #define PIN 4
 
-int last_ac = 0;
 int n_ac = 0;
-int blink = 0;
 
 volatile int ac_on = 0;
 volatile uint16_t ac_delay = 0;
@@ -35,9 +33,7 @@ void setup() {
   pinMode(BUTTON_C, INPUT_PULLUP);
   pinMode(BUTTON_D, INPUT_PULLUP);
   
-  last_ac = 0;
   n_ac = 0;
-  blink = 0;
 
   lcd_port_init();
   delay(20);
@@ -55,8 +51,8 @@ void setup() {
 
   lcd_home();
   lcd_clear();
-  printf("Hello world!");
-    
+  printf("Wakey wakey!");
+
   strip.begin();
   strip.show(); // Initialize all pixels to 'off'
 
@@ -79,7 +75,7 @@ void setup() {
     strip.show();
     delay(2);
   }
-  for (i=256; i>=0; i--) {
+  for (i=255; i>=0; i--) {
     c = strip.Color(i, i, i);
     strip.setPixelColor(0, c);
     strip.show();
@@ -111,6 +107,7 @@ static void ac_isr() {
 // Interrupt routine for Timer1 overflow
 ISR(TIMER1_OVF_vect) {
   if (ac_on) {
+    // Trigger TRIAC
     digitalWrite(AC_CONTROL, 1);
     delayMicroseconds(5);
     digitalWrite(AC_CONTROL, 0);
@@ -127,8 +124,6 @@ ISR(TIMER1_OVF_vect) {
 
 // current time
 int32_t seconds = 8 * 3600 + 15;
-
-
 
 void set_ac(int perthou) {
   // perthou: brightness, range 0 to 1000
@@ -218,17 +213,6 @@ void update_wakeup() {
 
 
 void loop() {
-
-  /*
-  if (!ac_on && seconds >= 3) {
-    ac_on = 1;
-
-    set_ac(140);
-    delay(1000);
-    set_ac(100);
-    ac_frac = 100;
-  }
-  */
   
   int ba = (analogRead(BUTTON_A) < 512);
   int bb = (analogRead(BUTTON_B) < 512);
@@ -275,40 +259,38 @@ void loop() {
     updated = 1;
   }
 
+  // clock
   if (n_ac >= 120) {
     n_ac -= 120;
     seconds++;
     updated = 1;
   }
 
-  if (updated) {
-    int ss = seconds % 60;
-    int mm = seconds / 60;
-    int hh = (mm / 60);
-    mm = mm % 60;
-    hh = hh % 24;
-    /// Not a typo... noon=0, midnight=12h, morning ~= 18h
-    int ispm = (hh < 12);
-    hh = hh % 12;
-    if (hh == 0) {
-      hh = 12;
-    }
-    lcd_home();
-    //lcd_clear();
-    printf("%02i:%02i:%02i %s            ", hh, mm, ss, (ispm ? "PM":"AM"));
-    //printf("\n%i %i   %i %i %i %i", ac_frac, pwm, ba, bb, bc, bd);
+  if (!updated)
+    return;
 
-    // Roll over to the next day (at noon)!
-    //if (seconds && ispm && (hh==12) && (mm==0) && (ss==0)) {
-    int32_t day = 24 * (int32_t)3600;
-    if (seconds >= day) {
-      seconds -= day;
-      reset_wakeup();
-    }
+  int ss = seconds % 60;
+  int mm = seconds / 60;
+  int hh = (mm / 60);
+  mm = mm % 60;
+  hh = hh % 24;
+  /// Not a typo... noon=0, midnight=12h, morning ~= 18h
+  int ispm = (hh < 12);
+  hh = hh % 12;
+  if (hh == 0)
+    hh = 12;
 
-    update_wakeup();
+  lcd_home();
+  printf("%02i:%02i:%02i %s            ", hh, mm, ss, (ispm ? "PM":"AM"));
+
+  // Roll over to the next day (at noon)!
+  int32_t day = 24 * (int32_t)3600;
+  if (seconds >= day) {
+    seconds -= day;
+    reset_wakeup();
   }
 
+  update_wakeup();
 }
 
 
