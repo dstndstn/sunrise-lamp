@@ -1,7 +1,7 @@
 #include <Adafruit_NeoPixel.h>
-#include <avr/power.h>
-
 #include <lcd.h>
+
+#include <avr/power.h>
 
 // AC_DETECT uses an interrupt, so MUST be pin 2 or 3
 #define AC_DETECT  2
@@ -41,7 +41,7 @@ int n_ac = 0;
 volatile int ac_on = 0;
 volatile uint16_t ac_delay = 0;
 
-Adafruit_NeoPixel strip = Adafruit_NeoPixel(1, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel neopix = Adafruit_NeoPixel(1, PIN, NEO_GRB + NEO_KHZ800);
 uint32_t c;
 
 void setup() {
@@ -74,32 +74,32 @@ void setup() {
   lcd_clear();
   printf("Wakey wakey!");
 
-  strip.begin();
-  strip.show(); // Initialize all pixels to 'off'
+  neopix.begin();
+  neopix.show(); // Initialize all pixels to 'off'
 
   int i;
   for (i=0; i<256; i++) {
-    c = strip.Color(i, 0, 0);
-    strip.setPixelColor(0, c);
-    strip.show();
+    c = neopix.Color(i, 0, 0);
+    neopix.setPixelColor(0, c);
+    neopix.show();
     delay(2);
   }
   for (i=0; i<256; i++) {
-    c = strip.Color(255, i, 0);
-    strip.setPixelColor(0, c);
-    strip.show();
+    c = neopix.Color(255, i, 0);
+    neopix.setPixelColor(0, c);
+    neopix.show();
     delay(2);
   }
   for (i=0; i<256; i++) {
-    c = strip.Color(255, 255, i);
-    strip.setPixelColor(0, c);
-    strip.show();
+    c = neopix.Color(255, 255, i);
+    neopix.setPixelColor(0, c);
+    neopix.show();
     delay(2);
   }
   for (i=255; i>=0; i--) {
-    c = strip.Color(i, i, i);
-    strip.setPixelColor(0, c);
-    strip.show();
+    c = neopix.Color(i, i, i);
+    neopix.setPixelColor(0, c);
+    neopix.show();
     delay(1);
   }
 
@@ -148,6 +148,13 @@ int32_t seconds = 8 * 3600 + 15;
 
 void set_ac(int perthou) {
   // perthou: brightness, range 0 to 1000
+  if (perthou < 0)
+    perthou = 0;
+  if (perthou > 1000)
+    perthou = 1000;
+
+  // 8M / 120 = 66666
+  // 8M / 120 / 8 = 8333
   
   // 16M / 8 / 120 = 16667 timer1 counts per 120-Hz cycle
   // 16000 goes on full blast (has wrapped around to next cycle)
@@ -155,11 +162,16 @@ void set_ac(int perthou) {
   // 15800 is very low
   // 15500 is very low
   // 15000 is very low
-  if (perthou < 0)
-    perthou = 0;
-  if (perthou > 1000)
-    perthou = 1000;
-  uint16_t t = (((uint32_t)15800 * (uint32_t)(1000-perthou)) / (uint32_t)1000);
+
+  uint16_t t;
+#if (F_CPU == 16000000UL)
+  t = ((15800UL * (uint32_t)(1000-perthou)) / 1000UL);
+#elif (F_CPU == 8000000UL)
+  t = ((7900UL * (uint32_t)(1000-perthou)) / 1000UL);
+#else
+  #warning Unknown clock freq
+#endif
+
   ac_delay = 65535 - t;
 }
 
@@ -203,9 +215,9 @@ void update_wakeup() {
       int g = ( 50 * elapsed / neo_dur);
       int b = ( 10 * elapsed / neo_dur);
       printf("neo %i %i %i", r, g, b);
-      c = strip.Color(r, g, b);
-      strip.setPixelColor(0, c);
-      strip.show();
+      c = neopix.Color(r, g, b);
+      neopix.setPixelColor(0, c);
+      neopix.show();
       return;
   }
 

@@ -54,12 +54,16 @@ ARDOBJS := Arduino/wiring.o Arduino/wiring_digital.o \
 	Arduino/hooks.o Arduino/WInterrupts.o \
 	Arduino/wiring_analog.o
 
-# Arduino/WMath.o 
-
 MAP := $(PROJECT).map
 
-$(PROJECT).elf: $(PROJECT)/$(PROJECT).o $(NEOPIXEL) $(LCD) $(ARDOBJS)
+OBJS := $(PROJECT)/$(PROJECT).o $(NEOPIXEL) $(LCD) $(ARDOBJS)
+
+$(PROJECT).elf: $(OBJS)
 	$(CC) $(CFLAGS) -Wl,-Map,$(MAP) -o $@ $^
+
+clean:
+	rm $(OBJS) *.elf *.o *.hex *.lst *.map
+.PHONY: clean
 
 ARD_H := \
 	cores/arduino/Arduino.h \
@@ -103,7 +107,4 @@ reset:
 
 %.hex: %.elf
 	$(OBJCOPY) -j .text -j .data -O ihex $< $@
-
-clean:
-	rm *.elf *.o *.hex *.lst *.map $(USB)
 
