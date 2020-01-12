@@ -5,11 +5,8 @@
 
 // AC_DETECT uses an interrupt, so MUST be pin 2 or 3
 #define AC_DETECT  2
-#define COUNT      4
 #define AC_CONTROL 7
-//#define PWM_LED    3
 
-//#define BUTTONS    A0
 #define BUTTON_A    A0
 #define BUTTON_B    A1
 #define BUTTON_C    A2
@@ -29,14 +26,10 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(1, PIN, NEO_GRB + NEO_KHZ800);
 uint32_t c;
 
 void setup() {
-  pinMode(AC_DETECT, INPUT);
-  pinMode(COUNT, OUTPUT);
+  pinMode(AC_DETECT, INPUT_PULLUP);
   pinMode(AC_CONTROL, OUTPUT);
-  //pinMode(PWM_LED, OUTPUT);
-  digitalWrite(COUNT, 1);
   digitalWrite(AC_CONTROL, 0);
 
-  //pinMode(BUTTONS, INPUT);
   pinMode(BUTTON_A, INPUT_PULLUP);
   pinMode(BUTTON_B, INPUT_PULLUP);
   pinMode(BUTTON_C, INPUT_PULLUP);
@@ -248,7 +241,7 @@ void loop() {
   if (n_ac >= 120) {
     n_ac = 0;
     seconds++;
-    digitalWrite(COUNT, seconds%2);
+    //digitalWrite(COUNT, seconds%2);
     updated = 1;
   }
 
@@ -270,49 +263,7 @@ void loop() {
 }
 
 
-
-
-
-
-
-// 8400 too much (shoud be 8333)
-//const int period = 8300;
-
-const int prewait = 700;
-const int period = 8200 - prewait;
-
-void OLD_loop() {
-  int ac = digitalRead(AC_DETECT);
-  if (ac == last_ac)
-    return;
-  last_ac = ac;
-
-  n_ac++;
-  if (n_ac >= 60) {
-    n_ac = 0;
-    blink++;
-    digitalWrite(COUNT, blink%2);
-    //digitalWrite(AC_CONTROL, blink%2);
-
-    if (blink % 2 == 0) {
-      seconds++;
-      int ss = seconds % 60;
-      int mm = seconds / 60;
-      int hh = (mm / 60) % 12;
-      mm = mm % 60;
-      if (hh == 0) {
-        hh = 12;
-      }
-      lcd_home();
-      lcd_clear();
-      printf("%02i:%02i:%02i", hh, mm, ss);
-    }
-
-  }
-
-  //if ((ac) && (blink % 2 == 1)) {
-if (ac) {
-
+/*
     int rgbperiod = 50;
     if (0 &&  blink < rgbperiod) {
       int r = ((255 * (blink%rgbperiod)) / rgbperiod);
@@ -322,23 +273,5 @@ if (ac) {
       strip.setPixelColor(0, c);
       strip.show();
     } else {
-    
-    delayMicroseconds(prewait);
-    int ontime = ((blink-rgbperiod) % (period/25)) * 25;
-    //int ontime = ((blink % 5) + (period/50 - 5)) * 50;
-    //int ontime = ((blink % 5) + (period/50 - 5)) * 50;
-    //int ontime = (((blink/5) % 10) + 0) * 50;
-    //int ontime = (((blink/5) % (period/50)) + 0) * 50;
-    int waittime = period - ontime;
-    //delayMicroseconds(period - (blink%(period/50))*50);
-    delayMicroseconds(waittime);
-    digitalWrite(AC_CONTROL, 1);
-    //delayMicroseconds(10);
-    delayMicroseconds(ontime);
-    digitalWrite(AC_CONTROL, 0);
-
-    }
-  }
-}
-
+*/
 
