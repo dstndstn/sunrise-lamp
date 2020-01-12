@@ -82,13 +82,22 @@ ARDUINO_APP := /Applications/Arduino.app/Contents/Java/hardware/arduino/avr/
 ardheaders.tgz: $(addprefix $(ARDUINO_APP), $(ARD_H))
 	tar czf $@ -C $(ARDUINO_APP) $(ARD_H)
 
+AVRDUDE := avrdude -p m168 -c bsd -v
+#AVRDUDE := avrdude -p m168 -c bsd
+#AVRDUDE := avrdude -p m168 -c arduino -P /dev/cu.usbmodem1421 -b 115200 -v
+#AVRDUDE := /Applications/Arduino.app/Contents/Java/hardware/tools/avr/bin/avrdude -C /Applications/Arduino.app/Contents/Java/hardware/tools/avr/etc/avrdude.conf -p m168 -c arduino -P /dev/cu.usbmodem1421 -b 115200 -v
+
 program:
-	avrdude -p m168 -c bsd -U flash:w:$(HEX)
+	$(AVRDUDE) -U flash:w:$(HEX)
 .PHONY: program
 
 reset:
-	avrdude -p m168 -c bsd -E noreset
+	$(AVRDUDE) -E noreset
 .PHONY: reset
+
+readfuse:
+	$(AVRDUDE) -U lfuse:r:lfuse.hex
+.PHONY: readfuse
 
 %.cpp: %.ino
 	cp $< $@
