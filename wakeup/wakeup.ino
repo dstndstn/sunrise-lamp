@@ -195,8 +195,8 @@ unsigned long bc_time = 0;
 unsigned long bd_time = 0;
 
 // end point
-//int32_t wakeup = (6+12) * 3600 + 30 * 60;
-int32_t wakeup = 8 * 3600 + 2 * 60;
+int32_t wakeup = (6+12) * 3600L + 30 * 60;
+//int32_t wakeup = 8 * 3600 + 2 * 60;
 
 int started_lamp;
 
@@ -206,10 +206,10 @@ static void reset_wakeup() {
 
 void update_wakeup() {
 
-  //int32_t neo_dur = 300;
-  //int32_t ac_dur = 1500;
-  int32_t neo_dur = 30;
-  int32_t ac_dur  = 60;
+  int32_t neo_dur = 300;
+  int32_t ac_dur = 1500;
+  //int32_t neo_dur = 30;
+  //int32_t ac_dur  = 60;
 
   int32_t duration = neo_dur + ac_dur;
   int32_t wakeup_start = wakeup - duration;
