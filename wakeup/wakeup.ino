@@ -368,12 +368,12 @@ void loop() {
   lcd_home();
   printf("     %02i:%02i:%02i %s            ", hh, mm, ss, (ispm ? "PM":"AM"));
 
-  int ss = wakeup % 60;
-  int mm = wakeup / 60;
-  int hh = (mm / 60);
+  ss = wakeup % 60;
+  mm = wakeup / 60;
+  hh = (mm / 60);
   mm = mm % 60;
   hh = hh % 24;
-  int ispm = (hh < 12);
+  ispm = (hh < 12);
   hh = hh % 12;
   if (hh == 0)
     hh = 12;
