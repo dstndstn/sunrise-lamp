@@ -3,17 +3,21 @@
 
 #include <avr/power.h>
 
-// AC_DETECT uses an interrupt, so MUST be pin 2 or 3
-#define AC_DETECT  2
-#define AC_CONTROL 7
+//// AC_DETECT uses an interrupt, so MUST be pin 2 or 3
+//#define AC_DETECT  2
+//#define AC_CONTROL 7
+//
+//// neopixel
+//#define PIN      4
+
+#define AC_DETECT  3
+#define AC_CONTROL 8
+#define NEO_PIN    9
 
 #define BUTTON_A    A0
 #define BUTTON_B    A1
 #define BUTTON_C    A2
 #define BUTTON_D    A3
-
-// neopixel
-#define PIN 4
 
 static void ac_isr();
 static void reset_wakeup();
@@ -41,10 +45,17 @@ int n_ac = 0;
 volatile int ac_on = 0;
 volatile uint16_t ac_delay = 0;
 
-Adafruit_NeoPixel neopix = Adafruit_NeoPixel(1, PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel neopix = Adafruit_NeoPixel(1, NEO_PIN, NEO_GRB + NEO_KHZ800);
 uint32_t c;
 
 void setup() {
+
+  /*
+  // set PD7 / pin7 as pin-change interrupt
+  PCMSK2 = (1 << PCINT23);
+  PCICR2 |= (1 << PCIE2);
+  */
+
   pinMode(AC_DETECT, INPUT_PULLUP);
   pinMode(AC_CONTROL, OUTPUT);
   digitalWrite(AC_CONTROL, 0);
