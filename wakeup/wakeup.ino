@@ -4,12 +4,6 @@
 #include <avr/power.h>
 
 //// AC_DETECT uses an interrupt, so MUST be pin 2 or 3
-//#define AC_DETECT  2
-//#define AC_CONTROL 7
-//
-//// neopixel
-//#define PIN      4
-
 #define AC_DETECT  3
 #define AC_CONTROL 8
 #define NEO_PIN    9
@@ -18,6 +12,8 @@
 #define BUTTON_B    A1
 #define BUTTON_C    A2
 #define BUTTON_D    A3
+#define BUTTON_E    A4
+#define BUTTON_F    A5
 
 static void ac_isr();
 static void reset_wakeup();
@@ -48,13 +44,11 @@ volatile uint16_t ac_delay = 0;
 Adafruit_NeoPixel neopix = Adafruit_NeoPixel(1, NEO_PIN, NEO_GRB + NEO_KHZ800);
 uint32_t c;
 
-void setup() {
+int demo = 0;
+int32_t demo_saved_wakeup;
 
-  /*
-  // set PD7 / pin7 as pin-change interrupt
-  PCMSK2 = (1 << PCINT23);
-  PCICR2 |= (1 << PCIE2);
-  */
+
+void setup() {
 
   pinMode(AC_DETECT, INPUT_PULLUP);
   pinMode(AC_CONTROL, OUTPUT);
@@ -64,6 +58,8 @@ void setup() {
   pinMode(BUTTON_B, INPUT_PULLUP);
   pinMode(BUTTON_C, INPUT_PULLUP);
   pinMode(BUTTON_D, INPUT_PULLUP);
+  pinMode(BUTTON_E, INPUT_PULLUP);
+  pinMode(BUTTON_F, INPUT_PULLUP);
   
   n_ac = 0;
 
@@ -86,8 +82,7 @@ void setup() {
   printf("Wakey wakey!");
 
   neopix.begin();
-  neopix.show(); // Initialize all pixels to 'off'
-
+  neopix.show();
   int i;
   for (i=0; i<256; i++) {
     c = neopix.Color(i, 0, 0);
@@ -157,6 +152,9 @@ ISR(TIMER1_OVF_vect) {
 // current time
 int32_t seconds = 8 * 3600 + 15;
 
+// wake time
+int32_t wakeup = (6+12) * 3600L + 30 * 60;
+
 void set_ac(int perthou) {
   // perthou: brightness, range 0 to 1000
   if (perthou < 0)
@@ -186,30 +184,26 @@ void set_ac(int perthou) {
   ac_delay = 65535 - t;
 }
 
-int ac_frac = 0;
-
-// button press start time / most recent
-unsigned long ba_time = 0;
-unsigned long bb_time = 0;
-unsigned long bc_time = 0;
-unsigned long bd_time = 0;
-
-// end point
-int32_t wakeup = (6+12) * 3600L + 30 * 60;
-//int32_t wakeup = 8 * 3600 + 2 * 60;
 
 int started_lamp;
 
 static void reset_wakeup() {
   started_lamp = 0;
+  ac_on = 0;
 }
 
 void update_wakeup() {
 
-  int32_t neo_dur = 300;
-  int32_t ac_dur = 1500;
-  //int32_t neo_dur = 30;
-  //int32_t ac_dur  = 60;
+  int32_t neo_dur;
+  int32_t ac_dur;
+
+  if (demo) {
+     neo_dur = 30;
+     ac_dur = 60;
+  } else {
+     neo_dur = 300;
+     ac_dur = 1500;
+  }
 
   int32_t duration = neo_dur + ac_dur;
   int32_t wakeup_start = wakeup - duration;
@@ -219,21 +213,34 @@ void update_wakeup() {
 
   int32_t elapsed = seconds - wakeup_start;
 
-  printf("\n%li el ", elapsed);
-  
+  //printf("\n%li el ", elapsed);
+
+  int32_t neo_dur1 = neo_dur / 2;
+
+  if (elapsed < neo_dur1) {
+      int r = (255 * elapsed / neo_dur1);
+      int g = ( 50 * elapsed / neo_dur1);
+      int b = ( 10 * elapsed / neo_dur1);
+      //printf("neo %i %i %i", r, g, b);
+      c = neopix.Color(r, g, b);
+      neopix.setPixelColor(0, c);
+      neopix.show();
+      return;
+  }
   if (elapsed < neo_dur) {
-      int r = (255 * elapsed / neo_dur);
-      int g = ( 50 * elapsed / neo_dur);
-      int b = ( 10 * elapsed / neo_dur);
-      printf("neo %i %i %i", r, g, b);
+      int r = 255;
+      int g =  50 + ( 50 * (elapsed-neo_dur1) / (neo_dur-neo_dur1));
+      int b =  10 + (  5 * (elapsed-neo_dur1) / (neo_dur-neo_dur1));
       c = neopix.Color(r, g, b);
       neopix.setPixelColor(0, c);
       neopix.show();
       return;
   }
 
+
   elapsed -= neo_dur;
   if (!started_lamp) {
+    // Fire up the LED bulb... can't just ramp up from zero.
     ac_on = 1;
     set_ac(140);
     delay(1000);
@@ -251,10 +258,19 @@ void update_wakeup() {
     frac = 50 + 250 + 700 * (elapsed-dur1) / (ac_dur - dur1);
   }
 
-  printf("ac %li %li", elapsed, frac);
+  //printf("ac %li %li", elapsed, frac);
   set_ac(frac);
 }
 
+//int ac_frac = 0;
+
+// button press start time / most recent
+unsigned long ba_time = 0;
+unsigned long bb_time = 0;
+unsigned long bc_time = 0;
+unsigned long bd_time = 0;
+unsigned long be_time = 0;
+unsigned long bf_time = 0;
 
 void loop() {
   
@@ -262,27 +278,52 @@ void loop() {
   int bb = (analogRead(BUTTON_B) < 512);
   int bc = (analogRead(BUTTON_C) < 512);
   int bd = (analogRead(BUTTON_D) < 512);
+  int be = (analogRead(BUTTON_E) < 512);
+  int bf = (analogRead(BUTTON_F) < 512);
 
   unsigned long now = millis();
 
   int updated = 0;
-  
+
+  if (bf) {
+    // DEMO mode!
+    demo = 1;
+    demo_saved_wakeup = wakeup;
+    wakeup = seconds + 10 + 90;
+    updated = 1;
+  }
+  if (be) {
+    // cancel DEMO mode!
+    demo = 0;
+    wakeup = demo_saved_wakeup;
+    updated = 1;
+  }
+
   if (bc && now - bc_time > 50) {
     // C press/hold
+    /*
     ac_frac++;
     if (ac_frac > 1000)
       ac_frac = 1000;
     set_ac(ac_frac);
+    */
+
+    wakeup -= 60;
+    if (wakeup < 0)
+      wakeup = 0;
 
     bc_time = now;
     updated = 1;
   }
   if (ba && now - ba_time > 50) {
     // A press/hold
+    /*
     ac_frac--;
     if (ac_frac < 0)
       ac_frac = 0;
     set_ac(ac_frac);
+    */
+    wakeup += 60;
 
     ba_time = now;
     updated = 1;
@@ -325,7 +366,18 @@ void loop() {
     hh = 12;
 
   lcd_home();
-  printf("%02i:%02i:%02i %s            ", hh, mm, ss, (ispm ? "PM":"AM"));
+  printf("     %02i:%02i:%02i %s            ", hh, mm, ss, (ispm ? "PM":"AM"));
+
+  int ss = wakeup % 60;
+  int mm = wakeup / 60;
+  int hh = (mm / 60);
+  mm = mm % 60;
+  hh = hh % 24;
+  int ispm = (hh < 12);
+  hh = hh % 12;
+  if (hh == 0)
+    hh = 12;
+  printf("\nWake %02i:%02i:%02i %s            ", hh, mm, ss, (ispm ? "PM":"AM"));
 
   // Roll over to the next day (at noon)!
   int32_t day = 24 * (int32_t)3600;
