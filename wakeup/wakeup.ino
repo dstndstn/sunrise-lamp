@@ -8,12 +8,15 @@
 #define AC_CONTROL 8
 #define NEO_PIN    9
 
+#define PWM_PIN    11
+
 #define BUTTON_A    A0
 #define BUTTON_B    A1
 #define BUTTON_C    A2
 #define BUTTON_D    A3
 #define BUTTON_E    A4
 #define BUTTON_F    A5
+
 
 static void ac_isr();
 static void reset_wakeup();
@@ -119,8 +122,50 @@ void setup() {
   interrupts();
   
   attachInterrupt(digitalPinToInterrupt(AC_DETECT), ac_isr, FALLING);
+  //attachInterrupt(digitalPinToInterrupt(AC_DETECT), ac_isr, RISING);
 
   reset_wakeup();
+
+  /*
+  ac_on = 1;
+
+  for (i=0; i<1000; i++) {
+    set_ac(i);
+    delay(2);
+  }
+  for (i=1000; i>=0; i--) {
+    set_ac(i);
+    delay(2);
+  }
+  ac_on = 0;
+  */
+  
+// OC2A-> Arduino pin 11
+
+// OCR2A, OCR2B
+// WGM2
+// COM2
+
+// Fast PWM mode: WGM2 bits 0-2 = 0x3 (count up to 255) or 0x7 (count up to OCR2A)
+//     COM2x bits 0-1 = 0x2 (non-inverted PWM), 0x3 (inverted PWM)
+
+  TCCR2A = _BV(COM2A1) | _BV(WGM21) | _BV(WGM20);
+  // NOTE, WGM22 is in TCCR2B
+  // prescaler = 1
+  TCCR2B = _BV(CS20);
+
+  OCR2A = 0;
+  pinMode(PWM_PIN, OUTPUT);
+
+  for (i=0; i<256; i++) {
+    OCR2A = i;
+    delay(4);
+  }
+  for (i=255; i>=0; i--) {
+    OCR2A = i;
+    delay(4);
+  }
+
 }
 
 static void ac_isr() {
@@ -145,15 +190,31 @@ ISR(TIMER1_OVF_vect) {
 // timer0, timer2 are 8-bit.  timer1 is 16-bit
 // 16 MHz clock
 // Arduino: timer0 used for delay(), millis(), micros()
-//          timer1 used for Servo library
+//          timer1 used for Servo library --- I'm using it here for AC dimming
 //          timer2 used for tone()
-// - timers set for 1kHz freq
+// - timers are set by the arduino startup code for ~1kHz freq (/64 prescaler)
+
+// Apparently, delay() on timer0 still work if you use PWM, just don't mess with the
+// prescaler or the frequency (TOP count)
+
+// Output compare registers:
+// Register   Arduino pin#     Pin  Chip pin
+// OC0A            6           PD6     12
+// OC0B            5           PD5     11
+// OC1A            9           PB1     15
+// OC1B           10           PB2     16
+// OC2A           11           PB3     17
+// OC2B            3           PD3      5
+
+
+
 
 // current time
-int32_t seconds = 8 * 3600 + 15;
+int32_t seconds = 8 * 3600L + 15;
 
 // wake time
 int32_t wakeup = (6+12) * 3600L + 30 * 60;
+//int32_t wakeup = 8 * 3600L + 30;
 
 void set_ac(int perthou) {
   // perthou: brightness, range 0 to 1000
@@ -262,7 +323,7 @@ void update_wakeup() {
   set_ac(frac);
 }
 
-//int ac_frac = 0;
+int ac_frac = 0;
 
 // button press start time / most recent
 unsigned long ba_time = 0;
@@ -287,16 +348,20 @@ void loop() {
 
   if (bf) {
     // DEMO mode!
-    demo = 1;
-    demo_saved_wakeup = wakeup;
-    wakeup = seconds + 10 + 90;
-    updated = 1;
+    if (demo == 0) {
+      demo = 1;
+      demo_saved_wakeup = wakeup;
+      wakeup = seconds + 10 + 90;
+      updated = 1;
+    }
   }
   if (be) {
     // cancel DEMO mode!
-    demo = 0;
-    wakeup = demo_saved_wakeup;
-    updated = 1;
+    if (demo == 1) {
+      demo = 0;
+      wakeup = demo_saved_wakeup;
+      updated = 1;
+    }
   }
 
   if (bc && now - bc_time > 50) {
@@ -317,12 +382,12 @@ void loop() {
   }
   if (ba && now - ba_time > 50) {
     // A press/hold
-    /*
+  /*
     ac_frac--;
     if (ac_frac < 0)
       ac_frac = 0;
     set_ac(ac_frac);
-    */
+  */
     wakeup += 60;
 
     ba_time = now;
@@ -367,7 +432,7 @@ void loop() {
 
   lcd_home();
   printf("     %02i:%02i:%02i %s            ", hh, mm, ss, (ispm ? "PM":"AM"));
-
+  
   ss = wakeup % 60;
   mm = wakeup / 60;
   hh = (mm / 60);
@@ -377,7 +442,8 @@ void loop() {
   hh = hh % 12;
   if (hh == 0)
     hh = 12;
-  printf("\nWake %02i:%02i:%02i %s            ", hh, mm, ss, (ispm ? "PM":"AM"));
+  //printf("\nWake %02i:%02i:%02i %s            ", hh, mm, ss, (ispm ? "PM":"AM"));
+  printf("\n%i    ", ac_frac);
 
   // Roll over to the next day (at noon)!
   int32_t day = 24 * (int32_t)3600;
@@ -388,5 +454,3 @@ void loop() {
 
   update_wakeup();
 }
-
-
