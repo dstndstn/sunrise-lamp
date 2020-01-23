@@ -2,7 +2,7 @@
 
 #include <Adafruit_NeoPixel.h>
 #include <lcd.h>
-#include <pinknoise.h>
+//#include <pinknoise.h>
 
 //// AC_DETECT uses an interrupt, so MUST be pin 2 or 3
 #define AC_DETECT  3
@@ -51,6 +51,7 @@ uint32_t c;
 int demo = 0;
 int32_t demo_saved_wakeup;
 
+int ac_frac = 0;
 
 void setup() {
 
@@ -127,9 +128,22 @@ void setup() {
 
   reset_wakeup();
 
-  /*
-  ac_on = 1;
+  set_ac(0);
+  ac_on = 0;
 
+  /*
+  lcd_home();
+  printf("Fire up bulb...");
+
+  // Fire up the LED bulb... can't just ramp up from zero.
+  set_ac(200);
+  delay(100);
+  set_ac(50);
+  delay(100);
+
+  delay(1000);
+  lcd_home();
+  printf("Dim up...");
   for (i=0; i<1000; i++) {
     set_ac(i);
     delay(2);
@@ -138,8 +152,35 @@ void setup() {
     set_ac(i);
     delay(2);
   }
-  ac_on = 0;
+  delay(1000);
   */
+  
+  /* Good enough for start-up?
+  set_ac(150);
+  delay(250);
+  set_ac(60);
+  */
+  
+  /*
+  delay(1000);
+  
+  for (i=60; i<300; i++) {
+    set_ac(i);
+    delay(20);
+  }
+  for (i=300; i>=60; i--) {
+    set_ac(i);
+    delay(20);
+  }
+  */
+  /*
+  set_ac(200);
+  delay(50);
+  set_ac(60);
+  */
+  ac_frac = 60;
+  
+  //ac_on = 1;
   
 // OC2A-> Arduino pin 11
 
@@ -150,37 +191,13 @@ void setup() {
 // Fast PWM mode: WGM2 bits 0-2 = 0x3 (count up to 255) or 0x7 (count up to OCR2A)
 //     COM2x bits 0-1 = 0x2 (non-inverted PWM), 0x3 (inverted PWM)
 
-  /*
-  TCCR2A = _BV(COM2A1) | _BV(WGM21) | _BV(WGM20);
-  // NOTE, WGM22 is in TCCR2B
-  // prescaler = 1
-  TCCR2B = _BV(CS20);
-
-  OCR2A = 0;
-  pinMode(PWM_PIN, OUTPUT);
-
-  for (i=0; i<256; i++) {
-    OCR2A = i;
-    delay(4);
-  }
-  for (i=255; i>=0; i--) {
-    OCR2A = i;
-    delay(4);
-  }
-  */
+  /* Pink noise
   OCR2A = 0x80;
   pinMode(PWM_PIN, OUTPUT);
   analogWrite(PWM_PIN, 0x80);
   setup_pinknoise();
+   */
 
-  /*
-  for (;;) {
-    digitalWrite(PWM_PIN, 1);
-    delayMicroseconds(2000);
-    digitalWrite(PWM_PIN, 0);
-    delayMicroseconds(2000);
-  }
-  */
 }
 
 static void ac_isr() {
@@ -191,9 +208,11 @@ static void ac_isr() {
     TCNT1 = ac_delay;
 }
 
+/*
 ISR (TIMER2_OVF_vect) {
   timer_overflow_isr();
 }
+*/
 
 // Interrupt routine for Timer1 overflow
 ISR(TIMER1_OVF_vect) {
@@ -229,11 +248,11 @@ ISR(TIMER1_OVF_vect) {
 
 
 // current time
-int32_t seconds = 8 * 3600L + 15;
+int32_t seconds = 8 * 3600L;
 
 // wake time
-int32_t wakeup = (6+12) * 3600L + 30 * 60;
-//int32_t wakeup = 8 * 3600L + 30;
+//int32_t wakeup = (6+12) * 3600L + 30 * 60;
+int32_t wakeup = 8 * 3600L + 610;
 
 void set_ac(int perthou) {
   // perthou: brightness, range 0 to 1000
@@ -281,12 +300,16 @@ void update_wakeup() {
      neo_dur = 30;
      ac_dur = 60;
   } else {
-     neo_dur = 300;
-     ac_dur = 1500;
+     neo_dur = 120;
+     ac_dur =  600;
   }
 
   int32_t duration = neo_dur + ac_dur;
   int32_t wakeup_start = wakeup - duration;
+
+  if ((seconds < wakeup_start) && ac_on) {
+    reset_wakeup();
+  }
 
   if (seconds < wakeup_start || seconds > wakeup)
     return;
@@ -322,10 +345,18 @@ void update_wakeup() {
   if (!started_lamp) {
     // Fire up the LED bulb... can't just ramp up from zero.
     ac_on = 1;
+
+    set_ac(150);
+    delay(250);
+    set_ac(60);
+    delay(100);
+
+    /*
     set_ac(140);
     delay(1000);
     set_ac(50);
     delay(100);
+    */
     started_lamp = 1;
   }
 
@@ -333,16 +364,17 @@ void update_wakeup() {
   int32_t dur1 = ac_dur/2;
   int32_t frac;
   if (elapsed < dur1) {
-    frac = 50 + 250 * elapsed / dur1;
+    frac = 60 + 240 * elapsed / dur1;
   } else {
-    frac = 50 + 250 + 700 * (elapsed-dur1) / (ac_dur - dur1);
+    frac = 60 + 240 + 700 * (elapsed-dur1) / (ac_dur - dur1);
   }
+
+  ac_frac = frac;
 
   //printf("ac %li %li", elapsed, frac);
   set_ac(frac);
 }
 
-int ac_frac = 0;
 
 // button press start time / most recent
 unsigned long ba_time = 0;
@@ -365,7 +397,14 @@ void loop() {
 
   int updated = 0;
 
-  if (bf) {
+  if (bf && now - bf_time > 50) {
+    ac_frac--;
+    if (ac_frac < 0)
+      ac_frac = 0;
+    set_ac(ac_frac);
+    bf_time = now;
+    updated = 1;
+    /*
     // DEMO mode!
     if (demo == 0) {
       demo = 1;
@@ -373,23 +412,29 @@ void loop() {
       wakeup = seconds + 10 + 90;
       updated = 1;
     }
+    */
   }
-  if (be) {
+  if (be && now - be_time > 50) {
+  //if (be) {
+    ac_frac++;
+    if (ac_frac > 1000)
+      ac_frac = 1000;
+    set_ac(ac_frac);
+    be_time = now;
+    updated = 1;
+    /*
     // cancel DEMO mode!
     if (demo == 1) {
       demo = 0;
       wakeup = demo_saved_wakeup;
       updated = 1;
     }
+    */
   }
 
   if (bc && now - bc_time > 50) {
     // C press/hold
     /*
-    ac_frac++;
-    if (ac_frac > 1000)
-      ac_frac = 1000;
-    set_ac(ac_frac);
     */
 
     wakeup -= 60;
@@ -401,12 +446,6 @@ void loop() {
   }
   if (ba && now - ba_time > 50) {
     // A press/hold
-  /*
-    ac_frac--;
-    if (ac_frac < 0)
-      ac_frac = 0;
-    set_ac(ac_frac);
-  */
     wakeup += 60;
 
     ba_time = now;
@@ -461,8 +500,8 @@ void loop() {
   hh = hh % 12;
   if (hh == 0)
     hh = 12;
-  //printf("\nWake %02i:%02i:%02i %s            ", hh, mm, ss, (ispm ? "PM":"AM"));
-  printf("\n%i    ", ac_frac);
+  printf("\nWake %02i:%02i:%02i %s     %i       ", hh, mm, ss, (ispm ? "PM":"AM"), ac_frac);
+  //printf("\nFrac %i    ", ac_frac);
 
   // Roll over to the next day (at noon)!
   int32_t day = 24 * (int32_t)3600;
