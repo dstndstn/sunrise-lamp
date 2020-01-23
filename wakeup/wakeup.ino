@@ -1,7 +1,8 @@
+#include <avr/power.h>
+
 #include <Adafruit_NeoPixel.h>
 #include <lcd.h>
-
-#include <avr/power.h>
+#include <pinknoise.h>
 
 //// AC_DETECT uses an interrupt, so MUST be pin 2 or 3
 #define AC_DETECT  3
@@ -149,6 +150,7 @@ void setup() {
 // Fast PWM mode: WGM2 bits 0-2 = 0x3 (count up to 255) or 0x7 (count up to OCR2A)
 //     COM2x bits 0-1 = 0x2 (non-inverted PWM), 0x3 (inverted PWM)
 
+  /*
   TCCR2A = _BV(COM2A1) | _BV(WGM21) | _BV(WGM20);
   // NOTE, WGM22 is in TCCR2B
   // prescaler = 1
@@ -165,7 +167,20 @@ void setup() {
     OCR2A = i;
     delay(4);
   }
+  */
+  OCR2A = 0x80;
+  pinMode(PWM_PIN, OUTPUT);
+  analogWrite(PWM_PIN, 0x80);
+  setup_pinknoise();
 
+  /*
+  for (;;) {
+    digitalWrite(PWM_PIN, 1);
+    delayMicroseconds(2000);
+    digitalWrite(PWM_PIN, 0);
+    delayMicroseconds(2000);
+  }
+  */
 }
 
 static void ac_isr() {
@@ -174,6 +189,10 @@ static void ac_isr() {
   // if AC is enabled, start timer1 for triggering TRIAC
   if (ac_on)
     TCNT1 = ac_delay;
+}
+
+ISR (TIMER2_OVF_vect) {
+  timer_overflow_isr();
 }
 
 // Interrupt routine for Timer1 overflow
