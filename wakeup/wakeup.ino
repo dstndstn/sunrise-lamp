@@ -130,7 +130,8 @@ void setup() {
   // By listening for the FALLING edge, we're sure that if we trigger
   // the TRIAC, it will stay on for the whole cycle, at the expense of
   // not being able to hit 100% duty cycle.
-  attachInterrupt(digitalPinToInterrupt(AC_DETECT), ac_isr, FALLING);
+  //  attachInterrupt(digitalPinToInterrupt(AC_DETECT), ac_isr, FALLING);
+  attachInterrupt(digitalPinToInterrupt(AC_DETECT), ac_isr, CHANGE);
 
   reset_wakeup();
 
@@ -207,11 +208,20 @@ void setup() {
 }
 
 static void ac_isr() {
-  // increment AC rectified-wave count (120 Hz)
-  n_ac++;
-  // if AC is enabled, start timer1 for triggering TRIAC
-  if (ac_on)
-    TCNT1 = ac_delay;
+  //
+  uint8_t ac = digitalRead(AC_DETECT);
+  if (!ac) {
+    // just went low -- just after the start of a half-cycle
+    // increment AC rectified-wave count (120 Hz)
+    n_ac++;
+    // if AC is enabled, start timer1 for triggering TRIAC
+    if (ac_on)
+      TCNT1 = ac_delay;
+  } else {
+    // just went high -- end of a half-cycle.
+    // Turn off TRIAC.
+    if (ac_on)
+      digitalWrite(AC_CONTROL, 0);
 }
 
 /*
@@ -227,8 +237,8 @@ ISR(TIMER1_OVF_vect) {
     digitalWrite(AC_CONTROL, 1);
     //delayMicroseconds(5);
     // long enough to allow the 'sillyscope to catch it!
-    delayMicroseconds(100);
-    digitalWrite(AC_CONTROL, 0);
+    //delayMicroseconds(100);
+    //digitalWrite(AC_CONTROL, 0);
   }
 }
 
