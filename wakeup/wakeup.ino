@@ -21,6 +21,7 @@
 
 static void ac_isr();
 static void reset_wakeup();
+static void set_ac(int perthou);
 void setup();
 
 #if STANDALONE
