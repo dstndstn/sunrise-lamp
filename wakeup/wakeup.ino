@@ -123,8 +123,13 @@ void setup() {
   TIMSK1 |= (1 << TOIE1); // enable timer overflow interrupt
   interrupts();
   
+  // The AC_DETECT pin goes HIGH as the 120 Hz AC signal crosses zero,
+  // so rises at the tail end of one cycle, stays high during the zero
+  // crossing, then falls at the beginning of the next cycle.
+  // By listening for the FALLING edge, we're sure that if we trigger
+  // the TRIAC, it will stay on for the whole cycle, at the expense of
+  // not being able to hit 100% duty cycle.
   attachInterrupt(digitalPinToInterrupt(AC_DETECT), ac_isr, FALLING);
-  //attachInterrupt(digitalPinToInterrupt(AC_DETECT), ac_isr, RISING);
 
   reset_wakeup();
 
@@ -219,7 +224,9 @@ ISR(TIMER1_OVF_vect) {
   if (ac_on) {
     // Trigger TRIAC
     digitalWrite(AC_CONTROL, 1);
-    delayMicroseconds(5);
+    //delayMicroseconds(5);
+    // long enough to allow the 'sillyscope to catch it!
+    delayMicroseconds(100);
     digitalWrite(AC_CONTROL, 0);
   }
 }
@@ -402,6 +409,9 @@ void loop() {
     if (ac_frac < 0)
       ac_frac = 0;
     set_ac(ac_frac);
+    if (ac_frac == 0) {
+       ac_on = 0;
+    }
     bf_time = now;
     updated = 1;
     /*
@@ -419,6 +429,19 @@ void loop() {
     ac_frac++;
     if (ac_frac > 1000)
       ac_frac = 1000;
+
+    if (!ac_on && ac_frac >= 100) {
+       ac_on = 1;
+
+       // Fire up the LED bulb... can't just ramp up from zero.
+       //set_ac(150);
+       set_ac(200);
+       delay(250);
+       //set_ac(60);
+       set_ac(100);
+       delay(100);
+       
+    }
     set_ac(ac_frac);
     be_time = now;
     updated = 1;
@@ -500,7 +523,7 @@ void loop() {
   hh = hh % 12;
   if (hh == 0)
     hh = 12;
-  printf("\nWake %02i:%02i:%02i %s     %i       ", hh, mm, ss, (ispm ? "PM":"AM"), ac_frac);
+  printf("\nWake %02i:%02i:%02i %s   %i       ", hh, mm, ss, (ispm ? "PM":"AM"), ac_frac);
   //printf("\nFrac %i    ", ac_frac);
 
   // Roll over to the next day (at noon)!
