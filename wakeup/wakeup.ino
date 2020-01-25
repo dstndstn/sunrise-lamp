@@ -222,6 +222,7 @@ static void ac_isr() {
     // Turn off TRIAC.
     if (ac_on)
       digitalWrite(AC_CONTROL, 0);
+  }
 }
 
 /*
