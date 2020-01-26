@@ -374,9 +374,11 @@ void update_wakeup() {
     int32_t dur1 = ac_dur/2;
     int32_t frac;
     if (elapsed < dur1) {
-        frac = 60 + 240 * elapsed / dur1;
+        //frac = 60 + 240 * elapsed / dur1;
+        frac = 200 * elapsed / dur1;
     } else {
-        frac = 60 + 240 + 700 * (elapsed-dur1) / (ac_dur - dur1);
+        //frac = 60 + 240 + 700 * (elapsed-dur1) / (ac_dur - dur1);
+        frac = 200 + 800 * (elapsed-dur1) / (ac_dur - dur1);
     }
 
     ac_frac = frac;
@@ -433,6 +435,8 @@ void loop() {
         if (ac_frac > 1000)
             ac_frac = 1000;
 
+        ac_on = 1;
+        /*
         if (!ac_on && ac_frac >= 100) {
             ac_on = 1;
 
@@ -445,6 +449,7 @@ void loop() {
             delay(100);
        
         }
+         */
         set_ac(ac_frac);
         be_time = now;
         updated = 1;
