@@ -269,8 +269,8 @@ ISR(TIMER1_OVF_vect) {
 int32_t seconds = 8 * 3600L;
 
 // wake time
-//int32_t wakeup = (6+12) * 3600L + 30 * 60;
-int32_t wakeup = 8 * 3600L + 610;
+int32_t wakeup = (6+12) * 3600L + 30 * 60;
+//int32_t wakeup = 8 * 3600L + 610;
 
 void set_ac(int perthou) {
     // perthou: brightness, range 0 to 1000
