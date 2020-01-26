@@ -293,8 +293,7 @@ void set_ac(int perthou) {
 #if (F_CPU == 16000000UL)
     t = ((15800UL * (uint32_t)(1000-perthou)) / 1000UL);
 #elif (F_CPU == 8000000UL)
-    //t = ((7900UL * (uint32_t)(1000-perthou)) / 1000UL);
-    t = ((7500UL * (uint32_t)(1000-perthou)) / 1000UL);
+    t = ((7350UL * (uint32_t)(1000-perthou)) / 1000UL);
 #else
 #warning Unknown clock freq
 #endif
@@ -302,11 +301,7 @@ void set_ac(int perthou) {
     ac_delay = 65535 - t;
 }
 
-
-//int started_lamp;
-
 static void reset_wakeup() {
-    //started_lamp = 0;
     ac_on = 0;
 }
 
@@ -361,6 +356,8 @@ void update_wakeup() {
 
 
     elapsed -= neo_dur;
+
+    ac_on = 1;
     /*
      if (!started_lamp) {
      // Fire up the LED bulb... can't just ramp up from zero.
