@@ -361,23 +361,17 @@ void update_wakeup() {
 
 
     elapsed -= neo_dur;
-    if (!started_lamp) {
-        // Fire up the LED bulb... can't just ramp up from zero.
-        ac_on = 1;
-
-        set_ac(150);
-        delay(250);
-        set_ac(60);
-        delay(100);
-
-        /*
-         set_ac(140);
-         delay(1000);
-         set_ac(50);
-         delay(100);
-         */
-        started_lamp = 1;
-    }
+    /*
+     if (!started_lamp) {
+     // Fire up the LED bulb... can't just ramp up from zero.
+     ac_on = 1;
+     set_ac(150);
+     delay(250);
+     set_ac(60);
+     delay(100);
+     started_lamp = 1;
+     }
+     */
 
     // slower ramp at start
     int32_t dur1 = ac_dur/2;
